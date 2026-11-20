@@ -1,0 +1,1 @@
+{"action":{"command":"npx tsc --noEmit","type":"run-command"},"description":"Run TypeScript type checking whenever a TS/TSX file is saved, so spec-driven code never drifts from the types in src/game/types.ts.","name":"typecheck-on-save","trigger":{"patterns":["**/*.ts","**/*.tsx"],"type":"file-save"}}

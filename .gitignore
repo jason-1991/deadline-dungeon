@@ -1,0 +1,7 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+# NOTE: /.kiro is intentionally NOT ignored — specs, steering, hooks and
+# agent configs are part of the deliverable and must stay in the repo.

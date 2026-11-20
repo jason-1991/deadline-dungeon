@@ -1,0 +1,38 @@
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('/fonts/PressStart2P.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('/fonts/Nunito.ttf') format('truetype');
+  font-weight: 600 800;
+  font-style: normal;
+}
+
+:root {
+  --color-bg:        #1B1035;
+  --color-panel:     #2A1A4E;
+  --color-panel-edge:#4A2F7F;
+  --color-pumpkin:   #FF8C1A;
+  --color-success:   #4ADE80;
+  --color-text:      #F4F1E6;
+  --color-secondary: #A79BC7;
+  --color-danger:    #E5484D;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

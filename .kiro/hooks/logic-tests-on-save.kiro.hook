@@ -1,0 +1,1 @@
+{"action":{"command":"npx vitest run src/game/logic.test.ts","type":"run-command"},"description":"Run the property-based test suite whenever the game logic changes — damage/XP invariants from the specs must stay green.","name":"logic-tests-on-save","trigger":{"patterns":["src/game/logic.ts"],"type":"file-save"}}
