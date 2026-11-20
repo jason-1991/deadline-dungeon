@@ -6,6 +6,8 @@ import {
   bossHpLeft,
   bossMaxHp,
   levelForXp,
+  buildDungeon,
+  roomStatus,
 } from "./logic.ts";
 import type { Dungeon, TaskMonster } from "./types.ts";
 
@@ -146,6 +148,65 @@ describe("levelForXp: monotonic (more XP never yields a lower level)", () => {
           expect(levelForXp(lo)).toBeLessThanOrEqual(levelForXp(hi));
         },
       ),
+    );
+  });
+});
+
+// ── STEP 3: buildDungeon and roomStatus property tests ───────────────────────
+describe("buildDungeon: room count and total maxHp match inputs", () => {
+  it("rooms.length === input.length and sum of monster maxHp === sum of Math.round(estimateHours*60)", () => {
+    const taskArb = fc.record({
+      title: fc.string({ minLength: 1, maxLength: 40 }),
+      estimateHours: fc.float({ min: 0.5, max: 10, noNaN: true }),
+    });
+    const roomInputArb = fc.record({
+      title: fc.string({ minLength: 1, maxLength: 40 }),
+      tasks: fc.array(taskArb, { minLength: 1, maxLength: 5 }),
+    });
+    const futureISO = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    fc.assert(
+      fc.property(
+        fc.array(roomInputArb, { minLength: 1, maxLength: 6 }),
+        (roomInputs) => {
+          const dungeon = buildDungeon("X", futureISO, roomInputs);
+          expect(dungeon.rooms.length).toBe(roomInputs.length);
+          const expectedHp = roomInputs.reduce(
+            (sum, room) =>
+              sum + room.tasks.reduce((s, t) => s + Math.round(t.estimateHours * 60), 0),
+            0,
+          );
+          const actualHp = dungeon.rooms.reduce(
+            (sum, room) => sum + room.monsters.reduce((s, m) => s + m.maxHp, 0),
+            0,
+          );
+          expect(actualHp).toBe(expectedHp);
+        },
+      ),
+    );
+  });
+});
+describe("roomStatus: cleared iff every monster.defeated is true", () => {
+  it("roomStatus([room], 0) === 'cleared' iff all monsters are defeated", () => {
+    const monsterWithFlagArb = fc.boolean().map(
+      (defeated): TaskMonster => ({
+        id: "m1",
+        title: "Task",
+        estimateHours: 1,
+        hp: defeated ? 0 : 60,
+        maxHp: 60,
+        tier: 2,
+        defeated,
+      }),
+    );
+    const roomWithFlagsArb = fc
+      .array(monsterWithFlagArb, { minLength: 1, maxLength: 8 })
+      .map((monsters) => ({ id: "r1", title: "Room", monsters }));
+    fc.assert(
+      fc.property(roomWithFlagsArb, (room) => {
+        const allDefeated = room.monsters.every((m) => m.defeated);
+        const status = roomStatus([room], 0);
+        expect(status === "cleared").toBe(allDefeated);
+      }),
     );
   });
 });

@@ -64,3 +64,56 @@ export function bossState(
   if (now > new Date(dungeon.deadlineISO)) return "defeated";
   return "ongoing";
 }
+
+// ── Builder helpers ──────────────────────────────────────────────────────────
+
+import type { Room, TaskMonster } from "./types.ts";
+
+/** Build a TaskMonster from a task title and estimate. */
+export function buildMonster(title: string, estimateHours: number): TaskMonster {
+  const maxHp = Math.round(estimateHours * 60);
+  return {
+    id: crypto.randomUUID(),
+    title,
+    estimateHours,
+    hp: maxHp,
+    maxHp,
+    tier: tierForEstimate(estimateHours),
+    defeated: false,
+  };
+}
+
+/** Build a full Dungeon from a name, ISO deadline, and room/task descriptors. */
+export function buildDungeon(
+  name: string,
+  deadlineISO: string,
+  rooms: { title: string; tasks: { title: string; estimateHours: number }[] }[],
+): Dungeon {
+  const builtRooms: Room[] = rooms.map((r) => ({
+    id: crypto.randomUUID(),
+    title: r.title,
+    monsters: r.tasks.map((t) => buildMonster(t.title, t.estimateHours)),
+  }));
+  return {
+    id: crypto.randomUUID(),
+    name,
+    deadlineISO,
+    rooms: builtRooms,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/** Compute the status of a room at a given index in the room list. */
+export type RoomStatus = "cleared" | "current" | "locked";
+
+export function roomStatus(rooms: Room[], index: number): RoomStatus {
+  const room = rooms[index];
+  const allDefeated = room.monsters.every((m) => m.defeated);
+  if (allDefeated) return "cleared";
+
+  // The first room whose monsters are not all defeated is "current"
+  for (let i = 0; i < index; i++) {
+    if (!rooms[i].monsters.every((m) => m.defeated)) return "locked";
+  }
+  return "current";
+}
