@@ -12,6 +12,12 @@ all progress saved in your browser's localStorage.
 
 Live demo: https://jason-1991.github.io/deadline-dungeon/
 
+## Screenshots
+
+![Dungeon map](docs/screenshots/map.png)
+![Focus combat and badges](docs/screenshots/combat.png)
+![Victory report card](docs/screenshots/report-card.png)
+
 ## Run it locally
 
 ```bash
