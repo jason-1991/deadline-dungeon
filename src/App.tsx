@@ -1,37 +1,10 @@
-import { bossMaxHp, bossHpLeft } from './game/logic';
+import { useState, useEffect } from 'react';
+import { bossMaxHp, bossHpLeft, roomStatus } from './game/logic';
 import type { Dungeon, TaskMonster } from './game/types';
-
-const DEMO: Dungeon = {
-  id: 'demo',
-  name: 'Kiroween — Deadline Dungeon',
-  deadlineISO: '2026-12-05T23:59:59Z',
-  createdAt: '2026-11-01T00:00:00Z',
-  rooms: [
-    {
-      id: 'r1',
-      title: 'Build the dungeon',
-      monsters: [
-        { id: 'm1', title: 'Scaffold repo', estimateHours: 0.5, hp: 0,  maxHp: 30,  tier: 1, defeated: true  },
-        { id: 'm2', title: 'Wire up routing', estimateHours: 1,   hp: 20, maxHp: 60,  tier: 2, defeated: false },
-      ],
-    },
-    {
-      id: 'r2',
-      title: 'Combat and Boss',
-      monsters: [
-        { id: 'm3', title: 'Timer & damage loop', estimateHours: 2,   hp: 120, maxHp: 120, tier: 3, defeated: false },
-        { id: 'm4', title: 'Boss HP bar',         estimateHours: 0.5, hp: 30,  maxHp: 30,  tier: 1, defeated: false },
-      ],
-    },
-    {
-      id: 'r3',
-      title: 'Ship it',
-      monsters: [
-        { id: 'm5', title: 'Deploy to Cloudflare', estimateHours: 1, hp: 60, maxHp: 60, tier: 2, defeated: false },
-      ],
-    },
-  ],
-};
+import { loadState, saveState, defaultPlayer } from './game/storage';
+import type { GameState } from './game/storage';
+import CreateDungeonForm from './components/CreateDungeonForm';
+import HpBar from './components/HpBar';
 
 const MONSTER_ART: Record<number, string> = {
   1: '/assets/monster-1-alarm-imp.png',
@@ -58,6 +31,14 @@ const css = {
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
+    width: '100%',
+    maxWidth: '900px',
+    justifyContent: 'space-between',
+  },
+  titleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
   },
   title: {
     fontFamily: "'Press Start 2P', monospace",
@@ -80,14 +61,6 @@ const css = {
     color: 'var(--color-secondary)',
     marginBottom: '8px',
   },
-  hpTrack: {
-    height: '26px',
-    background: '#150A29',
-    borderRadius: '9px',
-    border: '2px solid #000',
-    overflow: 'hidden' as const,
-    position: 'relative' as const,
-  },
   hpNumbers: {
     marginTop: '6px',
     fontFamily: "'Press Start 2P', monospace",
@@ -102,27 +75,12 @@ const css = {
     maxWidth: '900px',
     flexWrap: 'wrap' as const,
   },
-  roomPanel: {
-    flex: '1 1 240px',
-    background: 'var(--color-panel)',
-    border: '2px solid var(--color-panel-edge)',
-    borderRadius: '12px',
-    padding: '14px',
-  },
   roomTitle: {
     fontFamily: "'Press Start 2P', monospace",
     fontSize: '9px',
     color: 'var(--color-secondary)',
     marginBottom: '12px',
   },
-  monsterCard: (defeated: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    marginBottom: '10px',
-    opacity: defeated ? 0.5 : 1,
-    filter: defeated ? 'grayscale(1)' : 'none',
-  }),
   monsterName: {
     fontSize: '12px',
     fontWeight: 700,
@@ -137,19 +95,59 @@ const css = {
     color: 'var(--color-danger)',
     fontFamily: "'Press Start 2P', monospace",
   },
-  footer: {
-    fontFamily: "'Press Start 2P', monospace",
-    fontSize: '8px',
+  newBtn: {
+    background: 'transparent',
+    border: '1px solid var(--color-panel-edge)',
+    borderRadius: '6px',
     color: 'var(--color-secondary)',
-    textAlign: 'center' as const,
-    maxWidth: '600px',
-    lineHeight: 1.8,
+    cursor: 'pointer',
+    fontFamily: "'Nunito', sans-serif",
+    fontSize: '13px',
+    fontWeight: 800,
+    padding: '5px 12px',
+    whiteSpace: 'nowrap' as const,
   },
 };
 
+function roomPanelStyle(status: 'cleared' | 'current' | 'locked'): React.CSSProperties {
+  const base: React.CSSProperties = {
+    flex: '1 1 240px',
+    background: 'var(--color-panel)',
+    borderRadius: '12px',
+    padding: '14px',
+    transition: 'border 150ms ease',
+  };
+  if (status === 'cleared') {
+    return { ...base, border: '2px solid var(--color-success)' };
+  }
+  if (status === 'current') {
+    return {
+      ...base,
+      border: '2px solid var(--color-pumpkin)',
+      boxShadow: '0 0 10px 2px rgba(255,140,26,0.35)',
+    };
+  }
+  // locked
+  return {
+    ...base,
+    border: '2px solid var(--color-panel-edge)',
+    opacity: 0.5,
+    filter: 'grayscale(0.4)',
+  };
+}
+
 function MonsterCard({ monster }: { monster: TaskMonster }) {
   return (
-    <div style={css.monsterCard(monster.defeated)}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        marginBottom: '10px',
+        opacity: monster.defeated ? 0.5 : 1,
+        filter: monster.defeated ? 'grayscale(1)' : 'none',
+      }}
+    >
       <img
         src={MONSTER_ART[monster.tier]}
         alt={monster.title}
@@ -159,59 +157,99 @@ function MonsterCard({ monster }: { monster: TaskMonster }) {
       />
       <div>
         <div style={css.monsterName}>{monster.title}</div>
-        {monster.defeated
-          ? <div style={css.slain}>SLAIN</div>
-          : <div style={css.monsterHp}>{monster.hp} / {monster.maxHp} HP</div>}
+        {monster.defeated ? (
+          <div style={css.slain}>SLAIN</div>
+        ) : (
+          <div style={css.monsterHp}>
+            {monster.hp} / {monster.maxHp} HP
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export default function App() {
-  const maxHp  = bossMaxHp(DEMO);
-  const hpLeft = bossHpLeft(DEMO);
-  const fillPct = maxHp > 0 ? (hpLeft / maxHp) * 100 : 0;
+function DungeonView({
+  dungeon,
+  onNewDungeon,
+}: {
+  dungeon: Dungeon;
+  onNewDungeon: () => void;
+}) {
+  const maxHp = bossMaxHp(dungeon);
+  const hpLeft = bossHpLeft(dungeon);
 
   return (
-    <div style={css.page}>
+    <>
       {/* Header */}
       <div style={css.header}>
-        <img src="/assets/mascot-encourage.png" alt="Ghost mascot" width={64} height={64} />
-        <h1 style={css.title}>{DEMO.name}</h1>
+        <div style={css.titleRow}>
+          <img src="/assets/mascot-encourage.png" alt="Ghost mascot" width={64} height={64} />
+          <h1 style={css.title}>{dungeon.name}</h1>
+        </div>
+        <button style={css.newBtn} onClick={onNewDungeon}>
+          New Dungeon
+        </button>
       </div>
 
       {/* Boss HP bar */}
       <div style={css.panel}>
         <div style={css.bossLabel}>BOSS — The Deadline</div>
-        <div style={css.hpTrack}>
-          <div style={{
-            height: '100%',
-            width: `${fillPct}%`,
-            background: 'linear-gradient(90deg, #c86000, var(--color-pumpkin))',
-            borderRadius: '9px',
-            transition: 'width 300ms ease-out',
-          }} />
+        <HpBar hp={hpLeft} maxHp={maxHp} />
+        <div style={css.hpNumbers}>
+          {hpLeft} / {maxHp} HP
         </div>
-        <div style={css.hpNumbers}>{hpLeft} / {maxHp} HP</div>
       </div>
 
       {/* Room panels */}
       <div style={css.roomRow}>
-        {DEMO.rooms.map(room => (
-          <div key={room.id} style={css.roomPanel}>
-            <div style={css.roomTitle}>{room.title}</div>
-            {room.monsters.map(m => <MonsterCard key={m.id} monster={m} />)}
-          </div>
-        ))}
+        {dungeon.rooms.map((room, idx) => {
+          const status = roomStatus(dungeon.rooms, idx);
+          return (
+            <div key={room.id} style={roomPanelStyle(status)}>
+              <div style={css.roomTitle}>{room.title}</div>
+              {room.monsters.map((m) => (
+                <MonsterCard key={m.id} monster={m} />
+              ))}
+            </div>
+          );
+        })}
       </div>
+    </>
+  );
+}
 
-      {/* Boss art */}
-      <img src="/assets/boss-deadline.png" alt="The Deadline boss" width={96} height={96} />
+export default function App() {
+  const [state, setState] = useState<GameState>(() => loadState());
 
-      {/* Footer */}
-      <div style={css.footer}>
-        Skeleton build — full gameplay arrives via the specs in /.kiro
+  useEffect(() => {
+    setState(loadState());
+  }, []);
+
+  const handleCreate = (dungeon: Dungeon) => {
+    const next: GameState = { dungeon, player: state.player };
+    saveState(next);
+    setState(next);
+  };
+
+  const handleNewDungeon = () => {
+    if (!confirm('Start a new dungeon? Your current progress will be lost.')) return;
+    const next: GameState = { dungeon: null, player: defaultPlayer() };
+    saveState(next);
+    setState(next);
+  };
+
+  if (state.dungeon === null) {
+    return (
+      <div style={css.page}>
+        <CreateDungeonForm onCreate={handleCreate} />
       </div>
+    );
+  }
+
+  return (
+    <div style={css.page}>
+      <DungeonView dungeon={state.dungeon} onNewDungeon={handleNewDungeon} />
     </div>
   );
 }
