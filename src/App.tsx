@@ -10,8 +10,10 @@ import CreateDungeonForm from './components/CreateDungeonForm';
 import MonsterCard from './components/MonsterCard';
 import FocusTimer from './components/FocusTimer';
 import BossBar from './components/BossBar';
+import BadgeShelf from './components/BadgeShelf';
 import SettlementScreen from './components/SettlementScreen';
 import ReportCard from './components/ReportCard';
+import { ART } from './assets/images';
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 const P2 = "'Press Start 2P', monospace";
@@ -75,9 +77,9 @@ function BadgeToast({ ids, onDone }: { ids: BadgeId[]; onDone: () => void }) {
 }
 
 // ── DungeonView ───────────────────────────────────────────────────────────────
-function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
+function DungeonView({ state, setState, onNewDungeon, onShowReport, settled, newArmed }:
   { state: GameState; setState: (s: GameState) => void;
-    onNewDungeon: () => void; onShowReport: () => void; settled: boolean }) {
+    onNewDungeon: () => void; onShowReport: () => void; settled: boolean; newArmed: boolean }) {
   const { dungeon, player } = state;
   if (!dungeon) return null;
 
@@ -88,6 +90,9 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
 
   const [selId, setSelId]       = useState<string|null>(room?.monsters.find((m) => !m.defeated)?.id ?? null);
   const [toast, setToast]       = useState<BadgeId[]>([]);
+  const [manArmed, setManArmed] = useState(false);
+  const [showBadges, setShowBadges] = useState(false);
+  const manArmTimer             = useRef<ReturnType<typeof setTimeout>|null>(null);
 
   useEffect(() => {
     setSelId(room?.monsters.find((m) => !m.defeated)?.id ?? null);
@@ -125,8 +130,16 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
   function manualComplete() {
     if (!room) return;
     const t = room.monsters.find((m) => m.id===selId && !m.defeated) ?? room.monsters.find((m) => !m.defeated);
-    if (!t || !confirm(`Complete "${t.title}" without focus?`)) return;
-    dealDamage(t.hp);
+    if (!t) return;
+    if (!manArmed) {
+      setManArmed(true);
+      if (manArmTimer.current) clearTimeout(manArmTimer.current);
+      manArmTimer.current = setTimeout(() => setManArmed(false), 3000);
+    } else {
+      if (manArmTimer.current) clearTimeout(manArmTimer.current);
+      setManArmed(false);
+      dealDamage(t.hp);
+    }
   }
 
   const hpPct  = hpLeft / Math.max(1, maxHp);
@@ -137,7 +150,7 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
     <>
       <div style={css.header}>
         <div style={{ display:'flex', alignItems:'center', gap:'16px' }}>
-          <img src={`/assets/${mascot}.png`} alt="Ghost" width={64} height={64} />
+          <img src={ART[mascot]} alt="Ghost" width={64} height={64} />
           <h1 style={css.title}>{dungeon.name}</h1>
         </div>
         <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
@@ -147,10 +160,20 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
               <span style={css.sVal}>{[player.level, player.totalXp, `${player.streakDays}🔥`][i]}</span>
             </div>
           ))}
+          <button style={{...css.btn, borderColor: showBadges ? PKN : undefined, color: showBadges ? PKN : undefined}} onClick={() => setShowBadges((v) => !v)}>Badges</button>
           {settled && <button style={{...css.btn, borderColor:PKN, color:PKN}} onClick={onShowReport}>Report Card</button>}
-          <button style={css.btn} onClick={onNewDungeon}>New Dungeon</button>
+          <button style={css.btn} onClick={onNewDungeon}>
+            {newArmed ? 'Start new dungeon? Click again to confirm' : 'New Dungeon'}
+          </button>
         </div>
       </div>
+
+      {showBadges && (
+        <div style={{ width:'100%', maxWidth:'900px', background:'var(--color-panel)',
+          border:'1px solid var(--color-panel-edge)', borderRadius:'12px', padding:'16px' }}>
+          <BadgeShelf earnedIds={player.earnedBadgeIds ?? []} />
+        </div>
+      )}
 
       <div style={{ width:'100%', maxWidth:'900px' }}>
         <BossBar dungeon={dungeon} now={now} />
@@ -191,7 +214,9 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
       {room && !settled && (
         <div style={{ width:'100%', maxWidth:'900px', display:'flex', flexDirection:'column', alignItems:'center', gap:'12px' }}>
           <FocusTimer onDealDamage={dealDamage} disabled={!room.monsters.find((m) => !m.defeated)} />
-          <button style={css.manBtn} onClick={manualComplete}>Complete without focus</button>
+          <button style={css.manBtn} onClick={manualComplete}>
+            {manArmed ? 'Slay without focus? Click again to confirm' : 'Complete without focus'}
+          </button>
         </div>
       )}
 
@@ -206,6 +231,8 @@ export default function App() {
   const [showSettlement, setSettle] = useState(false);
   const [showReport, setReport]     = useState(false);
   const variant = useRef<'victory'|'defeated'>('victory');
+  const [newArmed, setNewArmed]     = useState(false);
+  const newArmTimer                 = useRef<ReturnType<typeof setTimeout>|null>(null);
 
   useEffect(() => {
     function check() {
@@ -239,9 +266,16 @@ export default function App() {
   }
 
   function handleNew() {
-    if (!confirm('Start a new dungeon? Your current progress will be lost.')) return;
-    const next: GameState = { dungeon: null, player: defaultPlayer() };
-    saveState(next); setState(next); setSettle(false); setReport(false);
+    if (!newArmed) {
+      setNewArmed(true);
+      if (newArmTimer.current) clearTimeout(newArmTimer.current);
+      newArmTimer.current = setTimeout(() => setNewArmed(false), 3000);
+    } else {
+      if (newArmTimer.current) clearTimeout(newArmTimer.current);
+      setNewArmed(false);
+      const next: GameState = { dungeon: null, player: defaultPlayer() };
+      saveState(next); setState(next); setSettle(false); setReport(false);
+    }
   }
 
   function handleExtend() {
@@ -261,7 +295,7 @@ export default function App() {
   return (
     <div style={css.page}>
       <DungeonView state={state} setState={setState}
-        onNewDungeon={handleNew} onShowReport={() => setReport(true)} settled={settled} />
+        onNewDungeon={handleNew} onShowReport={() => setReport(true)} settled={settled} newArmed={newArmed} />
 
       {showSettlement && state.dungeon && (
         <SettlementScreen dungeon={state.dungeon} player={state.player} variant={variant.current}

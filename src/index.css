@@ -1,13 +1,13 @@
 @font-face {
   font-family: 'Press Start 2P';
-  src: url('/fonts/PressStart2P.ttf') format('truetype');
+  src: url(./assets/fonts/PressStart2P.ttf) format('truetype');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Nunito';
-  src: url('/fonts/Nunito.ttf') format('truetype');
+  src: url(./assets/fonts/Nunito.ttf) format('truetype');
   font-weight: 600 800;
   font-style: normal;
 }

@@ -96,7 +96,7 @@ export default function FocusTimer({ onDealDamage, disabled }: Props) {
             </button>
           ))}
           <input type="number" min={1} max={999} placeholder="custom" value={customInput}
-            onChange={(e) => { setCustomInput(e.target.value); setUseCustom(true); }}
+            onChange={(e) => { const v = e.target.value; setCustomInput(v); if (v !== '') { setUseCustom(true); } else { setUseCustom(false); } }}
             onFocus={() => setUseCustom(true)}
             style={{ width: '70px', padding: '6px 8px', borderRadius: '6px', border: useCustom ? '1px solid var(--color-pumpkin)' : '1px solid var(--color-panel-edge)', background: 'var(--color-panel)', color: 'var(--color-text)', fontFamily: "'Nunito', sans-serif", fontWeight: 600, fontSize: '13px' }} />
         </div>

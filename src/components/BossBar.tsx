@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import HpBar from './HpBar';
 import type { Dungeon } from '../game/types';
 import { bossMaxHp, bossHpLeft } from '../game/logic';
+import { ART } from '../assets/images';
 
 interface Props {
   dungeon: Dungeon;
@@ -46,7 +47,7 @@ export default function BossBar({ dungeon, now }: Props) {
 
   return (
     <div style={styles.wrap}>
-      <img src="/assets/boss-deadline.png" alt="The Deadline Boss" style={styles.bossArt} />
+      <img src={ART['boss-deadline']} alt="The Deadline Boss" style={styles.bossArt} />
       <div style={styles.body}>
         <div style={styles.topRow}>
           <span style={styles.label}>THE DEADLINE</span>
@@ -62,7 +63,7 @@ export default function BossBar({ dungeon, now }: Props) {
         </div>
         <div style={styles.hpNumbers}>{hpLeft} / {maxHp} HP</div>
       </div>
-      <img src={`/assets/${mascot}.png`} alt="Ghost mascot" style={styles.mascot} />
+      <img src={ART[mascot]} alt="Ghost mascot" style={styles.mascot} />
     </div>
   );
 }

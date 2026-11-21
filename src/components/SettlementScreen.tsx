@@ -1,5 +1,6 @@
 import type { Dungeon, PlayerProgress } from '../game/types';
 import { bossHpLeft } from '../game/logic';
+import { ART } from '../assets/images';
 
 interface Props {
   dungeon: Dungeon;
@@ -33,7 +34,7 @@ export default function SettlementScreen({ dungeon, player, variant, onViewRepor
     <div style={styles.overlay}>
       <div style={styles.card}>
         <img
-          src={`/assets/${isVictory ? 'mascot-celebrate' : 'mascot-anxious'}.png`}
+          src={ART[isVictory ? 'mascot-celebrate' : 'mascot-anxious']}
           alt="Ghost mascot"
           style={styles.mascot}
         />

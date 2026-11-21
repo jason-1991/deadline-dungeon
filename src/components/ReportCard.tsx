@@ -1,6 +1,7 @@
 import type { Dungeon, PlayerProgress, BadgeId } from '../game/types';
 import { bossMaxHp, bossHpLeft } from '../game/logic';
 import BadgeShelf from './BadgeShelf';
+import { ART } from '../assets/images';
 
 interface Props {
   dungeon: Dungeon;
@@ -74,7 +75,7 @@ export default function ReportCard({ dungeon, player, variant, onClose }: Props)
           {/* Right */}
           <div style={{ flex: '0 0 38%', padding: '28px 20px', display: 'flex',
             flexDirection: 'column', alignItems: 'center', gap: '12px', background: '#1B1035' }}>
-            <img src="/assets/boss-deadline.png" alt="Deadline Boss"
+            <img src={ART['boss-deadline']} alt="Deadline Boss"
               style={{ width: 120, height: 120, imageRendering: 'pixelated' }} />
             <div style={{ fontFamily: P2, fontSize: '9px', color: SEC }}>THE DEADLINE</div>
             <div>
@@ -83,7 +84,7 @@ export default function ReportCard({ dungeon, player, variant, onClose }: Props)
               <span style={{ fontFamily: P2, fontSize: '20px', color: PKN }}>{maxHp}</span>
               <span style={{ fontFamily: P2, fontSize: '11px', color: SEC }}> HP</span>
             </div>
-            <img src={`/assets/${win ? 'mascot-celebrate' : 'mascot-anxious'}.png`}
+            <img src={ART[win ? 'mascot-celebrate' : 'mascot-anxious']}
               alt="Ghost mascot" style={{ width: 80, height: 80 }} />
             <div style={{ fontFamily: NU, fontWeight: 600, fontSize: '12px', color: SEC,
               textAlign: 'center', fontStyle: 'italic', lineHeight: 1.6 }}>

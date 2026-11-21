@@ -1,13 +1,14 @@
 import type { TaskMonster } from '../game/types';
 import HpBar from './HpBar';
+import { ART } from '../assets/images';
 
 const MONSTER_ART: Record<number, string> = {
-  1: '/assets/monster-1-alarm-imp.png',
-  2: '/assets/monster-2-doc-slime.png',
-  3: '/assets/monster-3-stickynote-bat.png',
-  4: '/assets/monster-4-coffee-golem.png',
-  5: '/assets/monster-5-inbox-hydra.png',
-  6: '/assets/monster-6-printer-behemoth.png',
+  1: ART['monster-1-alarm-imp'],
+  2: ART['monster-2-doc-slime'],
+  3: ART['monster-3-stickynote-bat'],
+  4: ART['monster-4-coffee-golem'],
+  5: ART['monster-5-inbox-hydra'],
+  6: ART['monster-6-printer-behemoth'],
 };
 
 const TIER_COLORS: Record<number, string> = {
