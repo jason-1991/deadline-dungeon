@@ -33,6 +33,7 @@ export interface PlayerProgress {
   totalXp: number;
   level: number;
   streakDays: number;
+  /** ISO date string (YYYY-MM-DD) of the last day a monster was defeated. */
   lastStreakDateISO: string | null;
 }
 

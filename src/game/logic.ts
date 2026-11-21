@@ -65,6 +65,37 @@ export function bossState(
   return "ongoing";
 }
 
+/**
+ * Update streak after a monster is defeated on `nowDate`.
+ * - same calendar day as lastDate → streak unchanged
+ * - consecutive day → streak + 1
+ * - gap of ≥2 days → streak resets to 1
+ */
+export function updateStreak(
+  streakDays: number,
+  lastStreakDateISO: string | null,
+  nowDate: Date,
+): { streakDays: number; lastStreakDateISO: string } {
+  const todayISO = nowDate.toISOString().slice(0, 10);
+  if (!lastStreakDateISO) {
+    return { streakDays: 1, lastStreakDateISO: todayISO };
+  }
+  const last = new Date(lastStreakDateISO);
+  const today = new Date(todayISO);
+  const diffDays = Math.round(
+    (today.getTime() - last.getTime()) / (24 * 60 * 60 * 1000),
+  );
+  if (diffDays === 0) {
+    // Same calendar day — keep streak, update date (already same)
+    return { streakDays, lastStreakDateISO: todayISO };
+  }
+  if (diffDays === 1) {
+    return { streakDays: streakDays + 1, lastStreakDateISO: todayISO };
+  }
+  // Gap — reset
+  return { streakDays: 1, lastStreakDateISO: todayISO };
+}
+
 // ── Builder helpers ──────────────────────────────────────────────────────────
 
 import type { Room, TaskMonster } from "./types.ts";
