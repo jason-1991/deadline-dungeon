@@ -10,6 +10,8 @@ badges — and beat the Boss by finishing your real work before the deadline.
 Built for **Kiroween** (Costume Contest). 100% static: no backend, no login,
 all progress saved in your browser's localStorage.
 
+Live demo: https://jason-1991.github.io/deadline-dungeon/
+
 ## Run it locally
 
 ```bash
@@ -34,8 +36,11 @@ npm test         # property-based tests for the game math
 
 ## Built with Kiro (spec-driven)
 
-This project is developed inside **Kiro** using spec-driven development. The
-`/.kiro` directory is committed on purpose — it is the evidence chain:
+Deadline Dungeon was built spec-first in Kiro. Four feature specs guided
+implementation, steering docs defined the game rules and technical
+constraints, agent hooks reran tests and production builds after file
+changes, and property-based testing with fast-check verifies the game math.
+The evidence chain is committed in `/.kiro` on purpose:
 
 - `/.kiro/specs/` — four feature specs (dungeon creation, focus combat, boss &
   settlement, report card), each with requirements (EARS), design, and tasks.
