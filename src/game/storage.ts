@@ -13,6 +13,7 @@ export function defaultPlayer(): PlayerProgress {
     level: 1,
     streakDays: 0,
     lastStreakDateISO: null,
+    earnedBadgeIds: [],
   };
 }
 
@@ -21,6 +22,8 @@ export function loadState(): GameState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === null) return { dungeon: null, player: defaultPlayer() };
     const parsed = JSON.parse(raw) as GameState;
+    // Back-fill fields added after initial release
+    if (!parsed.player.earnedBadgeIds) parsed.player.earnedBadgeIds = [];
     return parsed;
   } catch {
     return { dungeon: null, player: defaultPlayer() };

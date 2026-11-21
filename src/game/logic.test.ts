@@ -8,8 +8,9 @@ import {
   levelForXp,
   buildDungeon,
   roomStatus,
+  evaluateBadges,
 } from "./logic.ts";
-import type { Dungeon, TaskMonster } from "./types.ts";
+import type { Dungeon, TaskMonster, PlayerProgress } from "./types.ts";
 
 // ── STEP 1: first two property tests ────────────────────────────────────────
 
@@ -208,5 +209,140 @@ describe("roomStatus: cleared iff every monster.defeated is true", () => {
         expect(status === "cleared").toBe(allDefeated);
       }),
     );
+  });
+});
+
+// ── STEP 4: evaluateBadges tests ─────────────────────────────────────────────
+
+function makePlayer(overrides: Partial<PlayerProgress> = {}): PlayerProgress {
+  return {
+    totalXp: 0,
+    level: 1,
+    streakDays: 0,
+    lastStreakDateISO: null,
+    earnedBadgeIds: [],
+    ...overrides,
+  };
+}
+
+function makeDungeon(overrides: Partial<Dungeon> = {}): Dungeon {
+  const now = Date.now();
+  return {
+    id: "d1",
+    name: "Test Dungeon",
+    deadlineISO: new Date(now + 7 * 86_400_000).toISOString(),
+    createdAt: new Date(now - 24 * 86_400_000).toISOString(),
+    rooms: [{
+      id: "r1",
+      title: "Room 1",
+      monsters: [{
+        id: "m1",
+        title: "Task 1",
+        estimateHours: 1,
+        hp: 0,
+        maxHp: 60,
+        tier: 2,
+        defeated: true,
+      }],
+    }],
+    ...overrides,
+  };
+}
+
+describe("evaluateBadges: no duplicate awards", () => {
+  it("evaluateBadges never returns duplicate badge IDs in a single call", () => {
+    fc.assert(
+      fc.property(fc.nat({ max: 500 }), fc.nat({ max: 10 }), (xp, streak) => {
+        const dungeon = makeDungeon();
+        const player = makePlayer({ totalXp: xp, streakDays: streak });
+        const result = evaluateBadges(dungeon, player, new Date());
+        const unique = new Set(result);
+        expect(result.length).toBe(unique.size);
+      }),
+    );
+  });
+
+  it("calling evaluateBadges twice with already-earned badges yields no new awards", () => {
+    const dungeon = makeDungeon();
+    const player = makePlayer();
+    const first = evaluateBadges(dungeon, player, new Date());
+    const playerAfter = { ...player, earnedBadgeIds: first };
+    const second = evaluateBadges(dungeon, playerAfter, new Date());
+    expect(second).toHaveLength(0);
+  });
+});
+
+describe("evaluateBadges: correct awards for a sample completed state", () => {
+  it("awards first_blood when at least one monster is defeated", () => {
+    const dungeon = makeDungeon(); // has one defeated monster
+    const player = makePlayer();
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).toContain("first_blood");
+  });
+
+  it("awards dungeon_clear and boss_slayer on victory (all hp=0)", () => {
+    const dungeon = makeDungeon();
+    const player = makePlayer();
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).toContain("dungeon_clear");
+    expect(badges).toContain("boss_slayer");
+  });
+
+  it("awards no_extend on victory with extensions=0", () => {
+    const dungeon = makeDungeon({ extensions: 0 });
+    const player = makePlayer();
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).toContain("no_extend");
+  });
+
+  it("awards overtime on victory with extensions>=1", () => {
+    const dungeon = makeDungeon({ extensions: 2 });
+    const player = makePlayer();
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).toContain("overtime");
+    expect(badges).not.toContain("no_extend");
+  });
+
+  it("awards streak_3 when streakDays >= 3", () => {
+    const dungeon = makeDungeon();
+    const player = makePlayer({ streakDays: 5 });
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).toContain("streak_3");
+    expect(badges).not.toContain("streak_7");
+  });
+
+  it("awards streak_7 when streakDays >= 7", () => {
+    const dungeon = makeDungeon();
+    const player = makePlayer({ streakDays: 7 });
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).toContain("streak_7");
+  });
+
+  it("awards centurion when totalXp >= 100", () => {
+    const dungeon = makeDungeon();
+    const player = makePlayer({ totalXp: 150 });
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).toContain("centurion");
+  });
+
+  it("does NOT award dungeon_clear when boss has HP remaining", () => {
+    const dungeon = makeDungeon({
+      rooms: [{
+        id: "r1",
+        title: "Room 1",
+        monsters: [{
+          id: "m1",
+          title: "Task",
+          estimateHours: 1,
+          hp: 10,
+          maxHp: 60,
+          tier: 2,
+          defeated: false,
+        }],
+      }],
+    });
+    const player = makePlayer();
+    const badges = evaluateBadges(dungeon, player, new Date());
+    expect(badges).not.toContain("dungeon_clear");
   });
 });

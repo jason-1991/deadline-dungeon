@@ -26,7 +26,22 @@ export interface Dungeon {
   deadlineISO: string;
   rooms: Room[];
   createdAt: string;
+  /** Number of times the deadline has been extended (+24h each). */
+  extensions?: number;
 }
+
+/** All known badge IDs. */
+export type BadgeId =
+  | 'first_blood'
+  | 'dungeon_clear'
+  | 'speed_runner'
+  | 'no_extend'
+  | 'streak_3'
+  | 'streak_7'
+  | 'centurion'
+  | 'exterminator'
+  | 'boss_slayer'
+  | 'overtime';
 
 /** Player progression across all dungeons. */
 export interface PlayerProgress {
@@ -35,6 +50,8 @@ export interface PlayerProgress {
   streakDays: number;
   /** ISO date string (YYYY-MM-DD) of the last day a monster was defeated. */
   lastStreakDateISO: string | null;
+  /** Badge IDs earned so far. */
+  earnedBadgeIds: BadgeId[];
 }
 
 /** Computed state of the boss fight. */

@@ -134,6 +134,98 @@ export function buildDungeon(
   };
 }
 
+// ── Badge evaluation ─────────────────────────────────────────────────────────
+
+import type { BadgeId } from "./types.ts";
+import type { PlayerProgress } from "./types.ts";
+
+export interface BadgeDefinition {
+  id: BadgeId;
+  name: string;
+  description: string;
+}
+
+export const ALL_BADGES: BadgeDefinition[] = [
+  { id: 'first_blood',   name: 'First Blood',    description: 'Defeat your first monster' },
+  { id: 'dungeon_clear', name: 'Dungeon Clear',   description: 'Defeat all monsters before the deadline' },
+  { id: 'speed_runner',  name: 'Speed Runner',    description: 'Clear the dungeon with ≥50% time remaining' },
+  { id: 'no_extend',     name: 'No Mercy',        description: 'Win a dungeon without any deadline extensions' },
+  { id: 'streak_3',      name: 'Hat Trick',       description: 'Maintain a 3-day streak' },
+  { id: 'streak_7',      name: 'Week Warrior',    description: 'Maintain a 7-day streak' },
+  { id: 'centurion',     name: 'Centurion',       description: 'Earn 100 XP in a single dungeon' },
+  { id: 'exterminator',  name: 'Exterminator',    description: 'Defeat every monster in a dungeon' },
+  { id: 'boss_slayer',   name: 'Boss Slayer',     description: 'Win any dungeon (Boss HP = 0)' },
+  { id: 'overtime',      name: 'Overtime',        description: 'Extend the deadline at least once and still win' },
+];
+
+/** Pure function: given the current state, return all badge IDs that should now be earned.
+ *  Never returns duplicates. Already-earned badges are excluded. */
+export function evaluateBadges(
+  dungeon: Dungeon,
+  player: PlayerProgress,
+  now: Date,
+): BadgeId[] {
+  const earned = new Set<BadgeId>(player.earnedBadgeIds ?? []);
+  const result: BadgeId[] = [];
+
+  function award(id: BadgeId) {
+    if (!earned.has(id)) {
+      earned.add(id);
+      result.push(id);
+    }
+  }
+
+  const totalMonsters = dungeon.rooms.reduce((s, r) => s + r.monsters.length, 0);
+  const defeatedMonsters = dungeon.rooms.reduce(
+    (s, r) => s + r.monsters.filter((m) => m.defeated).length,
+    0,
+  );
+  const hpLeft = bossHpLeft(dungeon);
+  const maxHp = bossMaxHp(dungeon);
+  const state = bossState(dungeon, now);
+  const extensions = dungeon.extensions ?? 0;
+
+  // first_blood: at least one monster defeated
+  if (defeatedMonsters >= 1) award('first_blood');
+
+  // exterminator: all monsters defeated
+  if (defeatedMonsters === totalMonsters && totalMonsters > 0) award('exterminator');
+
+  // boss_slayer + dungeon_clear: victory state
+  if (state === 'victory') {
+    award('boss_slayer');
+    award('dungeon_clear');
+  }
+
+  // speed_runner: victory with ≥50% time remaining
+  if (state === 'victory') {
+    const created = new Date(dungeon.createdAt).getTime();
+    const deadline = new Date(dungeon.deadlineISO).getTime();
+    const totalDuration = deadline - created;
+    const elapsed = now.getTime() - created;
+    if (totalDuration > 0 && elapsed / totalDuration <= 0.5) award('speed_runner');
+  }
+
+  // no_extend: victory with zero extensions
+  if (state === 'victory' && extensions === 0) award('no_extend');
+
+  // overtime: victory after at least one extension
+  if (state === 'victory' && extensions >= 1) award('overtime');
+
+  // streak badges
+  if (player.streakDays >= 3) award('streak_3');
+  if (player.streakDays >= 7) award('streak_7');
+
+  // centurion: total XP ≥ 100
+  if (player.totalXp >= 100) award('centurion');
+
+  // suppress compiler unused var warnings
+  void hpLeft; void maxHp;
+
+  return result;
+}
+
+
 /** Compute the status of a room at a given index in the room list. */
 export type RoomStatus = "cleared" | "current" | "locked";
 

@@ -1,279 +1,167 @@
-import { useState, useEffect } from 'react';
-import { bossMaxHp, bossHpLeft, roomStatus, applyDamage, xpForMonster, levelForXp, updateStreak } from './game/logic';
-import type { Dungeon, Room } from './game/types';
+import { useState, useEffect, useRef } from 'react';
+import {
+  bossMaxHp, bossHpLeft, bossState, roomStatus,
+  applyDamage, xpForMonster, levelForXp, updateStreak, evaluateBadges,
+} from './game/logic';
+import type { Dungeon, Room, BadgeId } from './game/types';
 import { loadState, saveState, defaultPlayer } from './game/storage';
 import type { GameState } from './game/storage';
 import CreateDungeonForm from './components/CreateDungeonForm';
-import HpBar from './components/HpBar';
 import MonsterCard from './components/MonsterCard';
 import FocusTimer from './components/FocusTimer';
+import BossBar from './components/BossBar';
+import SettlementScreen from './components/SettlementScreen';
+import ReportCard from './components/ReportCard';
+
+// ── Style tokens ──────────────────────────────────────────────────────────────
+const P2 = "'Press Start 2P', monospace";
+const NU = "'Nunito', sans-serif";
+const SEC = 'var(--color-secondary)';
+const PKN = 'var(--color-pumpkin)';
 
 const css = {
-  page: {
-    minHeight: '100vh',
-    background: 'var(--color-bg)',
-    color: 'var(--color-text)',
-    fontFamily: "'Nunito', sans-serif",
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    padding: '24px 16px 48px',
-    gap: '24px',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    width: '100%',
-    maxWidth: '900px',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap' as const,
-  },
-  titleRow: { display: 'flex', alignItems: 'center', gap: '16px' },
-  title: {
-    fontFamily: "'Press Start 2P', monospace",
-    fontSize: '14px',
-    color: 'var(--color-pumpkin)',
-    lineHeight: 1.6,
-    margin: 0,
-  },
-  panel: {
-    background: 'var(--color-panel)',
-    border: '2px solid var(--color-panel-edge)',
-    borderRadius: '12px',
-    padding: '16px',
-    width: '100%',
-    maxWidth: '900px',
-  },
-  bossLabel: {
-    fontFamily: "'Press Start 2P', monospace",
-    fontSize: '10px',
-    color: 'var(--color-secondary)',
-    marginBottom: '8px',
-  },
-  hpNumbers: {
-    marginTop: '6px',
-    fontFamily: "'Press Start 2P', monospace",
-    fontSize: '10px',
-    color: 'var(--color-text)',
-    textAlign: 'right' as const,
-  },
-  roomRow: {
-    display: 'flex',
-    gap: '12px',
-    width: '100%',
-    maxWidth: '900px',
-    flexWrap: 'wrap' as const,
-  },
-  roomTitle: {
-    fontFamily: "'Press Start 2P', monospace",
-    fontSize: '9px',
-    color: 'var(--color-secondary)',
-    marginBottom: '12px',
-  },
-  newBtn: {
-    background: 'transparent',
-    border: '1px solid var(--color-panel-edge)',
-    borderRadius: '6px',
-    color: 'var(--color-secondary)',
-    cursor: 'pointer',
-    fontFamily: "'Nunito', sans-serif",
-    fontSize: '13px',
-    fontWeight: 800,
-    padding: '5px 12px',
-    whiteSpace: 'nowrap' as const,
-  },
-  statBadge: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    gap: '2px',
-    padding: '6px 12px',
-    background: 'var(--color-panel)',
-    border: '1px solid var(--color-panel-edge)',
-    borderRadius: '8px',
-  },
-  statLabel: {
-    fontFamily: "'Press Start 2P', monospace",
-    fontSize: '7px',
-    color: 'var(--color-secondary)',
-  },
-  statValue: {
-    fontFamily: "'Press Start 2P', monospace",
-    fontSize: '11px',
-    color: 'var(--color-pumpkin)',
-  },
-  manualBtn: {
-    fontFamily: "'Nunito', sans-serif",
-    fontWeight: 800,
-    fontSize: '13px',
-    padding: '8px 18px',
-    borderRadius: '6px',
-    border: '1px solid var(--color-secondary)',
-    background: 'transparent',
-    color: 'var(--color-secondary)',
-    cursor: 'pointer',
-  },
+  page:  { minHeight: '100vh', background: 'var(--color-bg)', color: 'var(--color-text)',
+    fontFamily: NU, display: 'flex', flexDirection: 'column' as const,
+    alignItems: 'center', padding: '24px 16px 48px', gap: '24px' },
+  header:{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%',
+    maxWidth: '900px', justifyContent: 'space-between', flexWrap: 'wrap' as const },
+  title: { fontFamily: P2, fontSize: '14px', color: PKN, lineHeight: 1.6, margin: 0 },
+  roomRow: { display: 'flex', gap: '12px', width: '100%', maxWidth: '900px', flexWrap: 'wrap' as const },
+  roomTitle: { fontFamily: P2, fontSize: '9px', color: SEC, marginBottom: '12px' },
+  btn:   { background: 'transparent', border: '1px solid var(--color-panel-edge)',
+    borderRadius: '6px', color: SEC, cursor: 'pointer', fontFamily: NU,
+    fontSize: '13px', fontWeight: 800, padding: '5px 12px', whiteSpace: 'nowrap' as const },
+  stat:  { display: 'flex', flexDirection: 'column' as const, alignItems: 'center',
+    gap: '2px', padding: '6px 12px', background: 'var(--color-panel)',
+    border: '1px solid var(--color-panel-edge)', borderRadius: '8px' },
+  sLbl:  { fontFamily: P2, fontSize: '7px', color: SEC },
+  sVal:  { fontFamily: P2, fontSize: '11px', color: PKN },
+  manBtn:{ fontFamily: NU, fontWeight: 800, fontSize: '13px', padding: '8px 18px',
+    borderRadius: '6px', border: `1px solid ${SEC}`, background: 'transparent', color: SEC, cursor: 'pointer' },
 };
 
-function roomPanelStyle(status: 'cleared' | 'current' | 'locked'): React.CSSProperties {
-  const base: React.CSSProperties = {
-    flex: '1 1 240px',
-    background: 'var(--color-panel)',
-    borderRadius: '12px',
-    padding: '14px',
-    transition: 'border 150ms ease',
-  };
-  if (status === 'cleared') return { ...base, border: '2px solid var(--color-success)' };
-  if (status === 'current') return { ...base, border: '2px solid var(--color-pumpkin)', boxShadow: '0 0 10px 2px rgba(255,140,26,0.35)' };
-  return { ...base, border: '2px solid var(--color-panel-edge)', opacity: 0.5, filter: 'grayscale(0.4)' };
+function roomStyle(s: 'cleared'|'current'|'locked'): React.CSSProperties {
+  const base: React.CSSProperties = { flex:'1 1 240px', background:'var(--color-panel)',
+    borderRadius:'12px', padding:'14px', transition:'border 150ms ease' };
+  if (s==='cleared') return {...base, border:'2px solid var(--color-success)'};
+  if (s==='current') return {...base, border:'2px solid var(--color-pumpkin)', boxShadow:'0 0 10px 2px rgba(255,140,26,0.35)'};
+  return {...base, border:'2px solid var(--color-panel-edge)', opacity:0.5, filter:'grayscale(0.4)'};
 }
 
-function currentRoom(dungeon: Dungeon): Room | undefined {
-  return dungeon.rooms.find((r) => r.monsters.some((m) => !m.defeated));
+function activeRoom(d: Dungeon): Room|undefined {
+  return d.rooms.find((r) => r.monsters.some((m) => !m.defeated));
 }
 
-function DungeonView({
-  state,
-  setState,
-  onNewDungeon,
-}: {
-  state: GameState;
-  setState: (s: GameState) => void;
-  onNewDungeon: () => void;
-}) {
+// ── Badge Toast ───────────────────────────────────────────────────────────────
+function BadgeToast({ ids, onDone }: { ids: BadgeId[]; onDone: () => void }) {
+  useEffect(() => { const t = setTimeout(onDone, 3500); return () => clearTimeout(t); }, [onDone]);
+  if (!ids.length) return null;
+  return (
+    <div style={{ position:'fixed', bottom:24, right:24, background:'var(--color-panel)',
+      border:'2px solid var(--color-success)', borderRadius:'12px', padding:'14px 18px',
+      display:'flex', flexDirection:'column', gap:'6px', zIndex:300,
+      boxShadow:'0 4px 24px rgba(74,222,128,0.25)' }}>
+      <span style={{ fontFamily:P2, fontSize:'8px', color:'var(--color-success)' }}>🏆 BADGE EARNED!</span>
+      {ids.map((id) => (
+        <span key={id} style={{ fontFamily:NU, fontWeight:800, fontSize:'13px', color:'var(--color-text)' }}>
+          {id.replace(/_/g,' ').toUpperCase()}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── DungeonView ───────────────────────────────────────────────────────────────
+function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
+  { state: GameState; setState: (s: GameState) => void;
+    onNewDungeon: () => void; onShowReport: () => void; settled: boolean }) {
   const { dungeon, player } = state;
   if (!dungeon) return null;
 
-  const maxHp = bossMaxHp(dungeon);
   const hpLeft = bossHpLeft(dungeon);
-  const room = currentRoom(dungeon);
-  const firstUndefeated = room?.monsters.find((m) => !m.defeated);
+  const maxHp  = bossMaxHp(dungeon);
+  const room   = activeRoom(dungeon);
+  const now    = new Date();
 
-  const [selectedId, setSelectedId] = useState<string | null>(firstUndefeated?.id ?? null);
+  const [selId, setSelId]       = useState<string|null>(room?.monsters.find((m) => !m.defeated)?.id ?? null);
+  const [toast, setToast]       = useState<BadgeId[]>([]);
 
-  // Keep selectedId pointed at a live monster when dungeon changes
   useEffect(() => {
-    const active = room?.monsters.find((m) => !m.defeated);
-    setSelectedId(active?.id ?? null);
+    setSelId(room?.monsters.find((m) => !m.defeated)?.id ?? null);
   }, [dungeon.id, room?.id]);
 
   function dealDamage(minutes: number) {
-    if (!dungeon) return;
-    if (!room) return;
-    // Find target: selected if still alive, else first undefeated
-    const target = room.monsters.find((m) => m.id === selectedId && !m.defeated)
+    if (!dungeon || !room) return;
+    const target = room.monsters.find((m) => m.id===selId && !m.defeated)
       ?? room.monsters.find((m) => !m.defeated);
     if (!target) return;
+    const dmg = Math.floor(minutes);
+    if (dmg <= 0) return;
 
-    const damage = Math.floor(minutes);
-    if (damage <= 0) return;
-
-    const { hpLeft: newHp, appliedDamage } = applyDamage(target.hp, damage);
-    const nowDefeated = newHp <= 0;
-    const xpGained = nowDefeated ? xpForMonster(target.maxHp - target.hp + appliedDamage, target.maxHp) : 0;
-
-    const newTotalXp = player.totalXp + xpGained;
-    const newLevel = levelForXp(newTotalXp);
-    const { streakDays: newStreak, lastStreakDateISO: newLastDate } = nowDefeated
+    const { hpLeft: newHp, appliedDamage } = applyDamage(target.hp, dmg);
+    const died = newHp <= 0;
+    const xpGained = died ? xpForMonster(target.maxHp - target.hp + appliedDamage, target.maxHp) : 0;
+    const newXp  = player.totalXp + xpGained;
+    const { streakDays: ns, lastStreakDateISO: nl } = died
       ? updateStreak(player.streakDays, player.lastStreakDateISO, new Date())
       : { streakDays: player.streakDays, lastStreakDateISO: player.lastStreakDateISO };
 
-    const updatedDungeon: Dungeon = {
-      ...dungeon,
-      rooms: dungeon.rooms.map((r) =>
-        r.id !== room.id
-          ? r
-          : {
-              ...r,
-              monsters: r.monsters.map((m) =>
-                m.id !== target.id
-                  ? m
-                  : { ...m, hp: newHp, defeated: nowDefeated },
-              ),
-            },
-      ),
-    };
+    const newDungeon: Dungeon = { ...dungeon, rooms: dungeon.rooms.map((r) =>
+      r.id!==room.id ? r : { ...r, monsters: r.monsters.map((m) =>
+        m.id!==target.id ? m : { ...m, hp: newHp, defeated: died }) }) };
+    const newPlayer = { ...player, totalXp: newXp, level: levelForXp(newXp), streakDays: ns, lastStreakDateISO: nl };
 
-    const next: GameState = {
-      dungeon: updatedDungeon,
-      player: {
-        totalXp: newTotalXp,
-        level: newLevel,
-        streakDays: newStreak,
-        lastStreakDateISO: newLastDate,
-      },
-    };
-    saveState(next);
-    setState(next);
+    const badges = evaluateBadges(newDungeon, newPlayer, new Date());
+    if (badges.length) { newPlayer.earnedBadgeIds = [...(newPlayer.earnedBadgeIds??[]), ...badges]; setToast(badges); }
 
-    // Advance selection to next alive monster in this room
-    if (nowDefeated) {
-      const nextAlive = updatedDungeon.rooms
-        .find((r) => r.id === room.id)
-        ?.monsters.find((m) => !m.defeated);
-      setSelectedId(nextAlive?.id ?? null);
-    }
+    const next: GameState = { dungeon: newDungeon, player: newPlayer };
+    saveState(next); setState(next);
+    if (died) setSelId(newDungeon.rooms.find((r) => r.id===room.id)?.monsters.find((m) => !m.defeated)?.id ?? null);
   }
 
-  function handleManualComplete() {
+  function manualComplete() {
     if (!room) return;
-    const target = room.monsters.find((m) => m.id === selectedId && !m.defeated)
-      ?? room.monsters.find((m) => !m.defeated);
-    if (!target) return;
-    if (!confirm(`Complete "${target.title}" without focus?`)) return;
-    dealDamage(target.hp); // deal exactly remaining HP
+    const t = room.monsters.find((m) => m.id===selId && !m.defeated) ?? room.monsters.find((m) => !m.defeated);
+    if (!t || !confirm(`Complete "${t.title}" without focus?`)) return;
+    dealDamage(t.hp);
   }
 
-  const mascot = hpLeft / Math.max(1, maxHp) < 0.15 ? 'anxious' : 'encourage';
+  const hpPct  = hpLeft / Math.max(1, maxHp);
+  const msLeft = new Date(dungeon.deadlineISO).getTime() - now.getTime();
+  const mascot = hpLeft===0 ? 'mascot-celebrate' : (msLeft < 864e5 || hpPct < 0.15) ? 'mascot-anxious' : 'mascot-encourage';
 
   return (
     <>
       <div style={css.header}>
-        <div style={css.titleRow}>
-          <img src={`/assets/mascot-${mascot}.png`} alt="Ghost mascot" width={64} height={64} />
+        <div style={{ display:'flex', alignItems:'center', gap:'16px' }}>
+          <img src={`/assets/${mascot}.png`} alt="Ghost" width={64} height={64} />
           <h1 style={css.title}>{dungeon.name}</h1>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={css.statBadge}>
-            <span style={css.statLabel}>LEVEL</span>
-            <span style={css.statValue}>{player.level}</span>
-          </div>
-          <div style={css.statBadge}>
-            <span style={css.statLabel}>XP</span>
-            <span style={css.statValue}>{player.totalXp}</span>
-          </div>
-          <div style={css.statBadge}>
-            <span style={css.statLabel}>STREAK</span>
-            <span style={css.statValue}>{player.streakDays}🔥</span>
-          </div>
-          <button style={css.newBtn} onClick={onNewDungeon}>New Dungeon</button>
+        <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
+          {(['LEVEL','XP','STREAK'] as const).map((lbl, i) => (
+            <div key={lbl} style={css.stat}>
+              <span style={css.sLbl}>{lbl}</span>
+              <span style={css.sVal}>{[player.level, player.totalXp, `${player.streakDays}🔥`][i]}</span>
+            </div>
+          ))}
+          {settled && <button style={{...css.btn, borderColor:PKN, color:PKN}} onClick={onShowReport}>Report Card</button>}
+          <button style={css.btn} onClick={onNewDungeon}>New Dungeon</button>
         </div>
       </div>
 
-      {/* Boss HP bar */}
-      <div style={css.panel}>
-        <div style={css.bossLabel}>BOSS — The Deadline</div>
-        <HpBar hp={hpLeft} maxHp={maxHp} />
-        <div style={css.hpNumbers}>{hpLeft} / {maxHp} HP</div>
+      <div style={{ width:'100%', maxWidth:'900px' }}>
+        <BossBar dungeon={dungeon} now={now} />
       </div>
 
-      {/* Room panels */}
       <div style={css.roomRow}>
         {dungeon.rooms.map((r, idx) => {
-          const status = roomStatus(dungeon.rooms, idx);
-          const isCurrent = status === 'current';
+          const st = roomStatus(dungeon.rooms, idx);
           return (
-            <div key={r.id} style={roomPanelStyle(status)}>
+            <div key={r.id} style={roomStyle(st)}>
               <div style={css.roomTitle}>{r.title}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
                 {r.monsters.map((m) => (
-                  <MonsterCard
-                    key={m.id}
-                    monster={m}
-                    selected={isCurrent && m.id === selectedId}
-                    onSelect={setSelectedId}
-                  />
+                  <MonsterCard key={m.id} monster={m} selected={st==='current' && m.id===selId} onSelect={setSelId} />
                 ))}
               </div>
             </div>
@@ -281,56 +169,91 @@ function DungeonView({
         })}
       </div>
 
-      {/* Combat controls for the current room */}
-      {room && (
-        <div style={{ width: '100%', maxWidth: '900px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-          <FocusTimer onDealDamage={dealDamage} disabled={!firstUndefeated} />
-          <button style={css.manualBtn} onClick={handleManualComplete} disabled={!firstUndefeated}>
-            Complete without focus
-          </button>
+      {room && !settled && (
+        <div style={{ width:'100%', maxWidth:'900px', display:'flex', flexDirection:'column', alignItems:'center', gap:'12px' }}>
+          <FocusTimer onDealDamage={dealDamage} disabled={!room.monsters.find((m) => !m.defeated)} />
+          <button style={css.manBtn} onClick={manualComplete}>Complete without focus</button>
         </div>
       )}
 
-      {hpLeft === 0 && (
-        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '14px', color: 'var(--color-success)', textAlign: 'center' }}>
-          🎉 DUNGEON CLEARED! The Boss is defeated!
-        </div>
-      )}
+      {toast.length > 0 && <BadgeToast ids={toast} onDone={() => setToast([])} />}
     </>
   );
 }
 
+// ── App root ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [state, setState] = useState<GameState>(() => loadState());
+  const [state, setState]           = useState<GameState>(() => loadState());
+  const [showSettlement, setSettle] = useState(false);
+  const [showReport, setReport]     = useState(false);
+  const variant = useRef<'victory'|'defeated'>('victory');
 
   useEffect(() => {
-    setState(loadState());
+    function check() {
+      const s = loadState();
+      if (!s.dungeon) return;
+      const bs = bossState(s.dungeon, new Date());
+      if (bs==='ongoing') return;
+      variant.current = bs; setState(s); setSettle(true);
+    }
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
   }, []);
 
-  const handleCreate = (dungeon: Dungeon) => {
-    const next: GameState = { dungeon, player: state.player };
-    saveState(next);
-    setState(next);
-  };
+  useEffect(() => {
+    if (!state.dungeon) return;
+    const bs = bossState(state.dungeon, new Date());
+    if (bs==='ongoing') return;
+    const nb = evaluateBadges(state.dungeon, state.player, new Date());
+    if (nb.length) {
+      const up: GameState = { ...state, player: { ...state.player,
+        earnedBadgeIds: [...(state.player.earnedBadgeIds??[]), ...nb] } };
+      saveState(up); setState(up);
+    }
+    variant.current = bs; setSettle(true);
+  }, [state.dungeon]);
 
-  const handleNewDungeon = () => {
+  function handleCreate(dungeon: Dungeon) {
+    const next: GameState = { dungeon, player: state.player };
+    saveState(next); setState(next); setSettle(false); setReport(false);
+  }
+
+  function handleNew() {
     if (!confirm('Start a new dungeon? Your current progress will be lost.')) return;
     const next: GameState = { dungeon: null, player: defaultPlayer() };
-    saveState(next);
-    setState(next);
-  };
-
-  if (state.dungeon === null) {
-    return (
-      <div style={css.page}>
-        <CreateDungeonForm onCreate={handleCreate} />
-      </div>
-    );
+    saveState(next); setState(next); setSettle(false); setReport(false);
   }
+
+  function handleExtend() {
+    if (!state.dungeon) return;
+    const newDeadline = new Date(new Date(state.dungeon.deadlineISO).getTime() + 864e5).toISOString();
+    const up: GameState = { ...state, dungeon: { ...state.dungeon, deadlineISO: newDeadline,
+      extensions: (state.dungeon.extensions ?? 0) + 1 } };
+    saveState(up); setState(up); setSettle(false);
+  }
+
+  if (!state.dungeon) {
+    return <div style={css.page}><CreateDungeonForm onCreate={handleCreate} /></div>;
+  }
+
+  const settled = showSettlement || bossState(state.dungeon, new Date()) !== 'ongoing';
 
   return (
     <div style={css.page}>
-      <DungeonView state={state} setState={setState} onNewDungeon={handleNewDungeon} />
+      <DungeonView state={state} setState={setState}
+        onNewDungeon={handleNew} onShowReport={() => setReport(true)} settled={settled} />
+
+      {showSettlement && state.dungeon && (
+        <SettlementScreen dungeon={state.dungeon} player={state.player} variant={variant.current}
+          onViewReport={() => { setSettle(false); setReport(true); }}
+          onNewDungeon={handleNew} onExtend={handleExtend} />
+      )}
+
+      {showReport && state.dungeon && (
+        <ReportCard dungeon={state.dungeon} player={state.player}
+          variant={variant.current} onClose={() => setReport(false)} />
+      )}
     </div>
   );
 }
