@@ -150,7 +150,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   btnPrimary: {
     background: 'var(--color-pumpkin)',
-    color: '#1B1035',
+    border: '3px solid #1E1033',
+    borderRadius: 12,
+    color: 'var(--color-text)',
   },
   btnSecondary: {
     background: 'var(--color-panel-edge)',

@@ -212,6 +212,49 @@ describe("roomStatus: cleared iff every monster.defeated is true", () => {
   });
 });
 
+describe("roomStatus: upcoming, locked, and overdue states", () => {
+  const clearedRoom = (id: string) => ({
+    id,
+    title: "Room",
+    monsters: [{ id: `${id}-m`, title: "T", estimateHours: 1, hp: 0, maxHp: 60, tier: 2 as const, defeated: true }],
+  });
+  const activeRoom = (id: string) => ({
+    id,
+    title: "Room",
+    monsters: [{ id: `${id}-m`, title: "T", estimateHours: 1, hp: 60, maxHp: 60, tier: 2 as const, defeated: false }],
+  });
+
+  it("room immediately after current is 'upcoming'", () => {
+    const rooms = [activeRoom("r0"), activeRoom("r1"), activeRoom("r2")];
+    expect(roomStatus(rooms, 1)).toBe("upcoming");
+  });
+
+  it("rooms two or more past current are 'locked'", () => {
+    const rooms = [activeRoom("r0"), activeRoom("r1"), activeRoom("r2")];
+    expect(roomStatus(rooms, 2)).toBe("locked");
+  });
+
+  it("current room is 'overdue' when overdue=true", () => {
+    const rooms = [activeRoom("r0"), activeRoom("r1")];
+    expect(roomStatus(rooms, 0, true)).toBe("overdue");
+  });
+
+  it("current room is 'current' when overdue=false (default)", () => {
+    const rooms = [clearedRoom("r0"), activeRoom("r1")];
+    expect(roomStatus(rooms, 1)).toBe("current");
+  });
+
+  it("cleared room stays 'cleared' regardless of overdue flag", () => {
+    const rooms = [clearedRoom("r0"), activeRoom("r1")];
+    expect(roomStatus(rooms, 0, true)).toBe("cleared");
+  });
+
+  it("upcoming room stays 'upcoming' even when overdue=true", () => {
+    const rooms = [activeRoom("r0"), activeRoom("r1"), activeRoom("r2")];
+    expect(roomStatus(rooms, 1, true)).toBe("upcoming");
+  });
+});
+
 // ── STEP 4: evaluateBadges tests ─────────────────────────────────────────────
 
 function makePlayer(overrides: Partial<PlayerProgress> = {}): PlayerProgress {

@@ -8,7 +8,7 @@ interface Props {
 type Phase = 'idle' | 'running' | 'paused';
 
 const btn: React.CSSProperties = { fontFamily: "'Nunito', sans-serif", fontWeight: 800, fontSize: '13px', padding: '6px 14px', borderRadius: '6px', border: '1px solid var(--color-panel-edge)', cursor: 'pointer', background: 'var(--color-panel)', color: 'var(--color-text)' };
-const btnPrimary: React.CSSProperties = { ...btn, background: 'var(--color-pumpkin)', border: '1px solid var(--color-pumpkin)', color: '#1B1035' };
+const btnPrimary: React.CSSProperties = { ...btn, background: 'var(--color-pumpkin)', border: '3px solid #1E1033', borderRadius: 12, color: 'var(--color-text)' };
 const btnDanger: React.CSSProperties = { ...btn, border: '1px solid var(--color-danger)', color: 'var(--color-danger)' };
 
 export default function FocusTimer({ onDealDamage, disabled }: Props) {

@@ -226,17 +226,24 @@ export function evaluateBadges(
 }
 
 
-/** Compute the status of a room at a given index in the room list. */
-export type RoomStatus = "cleared" | "current" | "locked";
+/** Compute the status of a room at a given index in the room list.
+ *  - cleared:  all monsters defeated
+ *  - current:  the first non-cleared room (active fight)
+ *  - overdue:  current room AND the dungeon deadline has passed without victory
+ *  - upcoming: the room immediately after the current one
+ *  - locked:   any room further beyond the current one
+ */
+export type RoomStatus = "cleared" | "current" | "overdue" | "upcoming" | "locked";
 
-export function roomStatus(rooms: Room[], index: number): RoomStatus {
+export function roomStatus(rooms: Room[], index: number, overdue = false): RoomStatus {
   const room = rooms[index];
   const allDefeated = room.monsters.every((m) => m.defeated);
   if (allDefeated) return "cleared";
 
-  // The first room whose monsters are not all defeated is "current"
-  for (let i = 0; i < index; i++) {
-    if (!rooms[i].monsters.every((m) => m.defeated)) return "locked";
-  }
-  return "current";
+  // Find the first non-cleared room index
+  const currentIdx = rooms.findIndex((r) => !r.monsters.every((m) => m.defeated));
+
+  if (index === currentIdx) return overdue ? "overdue" : "current";
+  if (index === currentIdx + 1) return "upcoming";
+  return "locked";
 }

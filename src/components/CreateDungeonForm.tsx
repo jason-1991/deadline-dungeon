@@ -47,19 +47,17 @@ const btn = (variant: "primary" | "ghost" | "danger"): React.CSSProperties => ({
   background:
     variant === "primary"
       ? "var(--color-pumpkin)"
-      : variant === "danger"
-      ? "transparent"
       : "transparent",
   border:
-    variant === "ghost"
-      ? "1px solid var(--color-panel-edge)"
+    variant === "primary"
+      ? "3px solid #1E1033"
       : variant === "danger"
       ? "1px solid var(--color-danger)"
-      : "none",
-  borderRadius: 6,
+      : "1px solid var(--color-panel-edge)",
+  borderRadius: variant === "primary" ? 12 : 6,
   color:
     variant === "primary"
-      ? "#1B1035"
+      ? "var(--color-text)"
       : variant === "danger"
       ? "var(--color-danger)"
       : "var(--color-secondary)",
@@ -292,7 +290,6 @@ export default function CreateDungeonForm({ onCreate }: Props) {
           ...btn("primary"),
           padding: "12px 24px",
           fontSize: 15,
-          fontFamily: "'Press Start 2P', monospace",
           letterSpacing: "0.03em",
           alignSelf: "flex-start",
         }}

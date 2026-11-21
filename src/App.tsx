@@ -26,7 +26,7 @@ const css = {
   header:{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%',
     maxWidth: '900px', justifyContent: 'space-between', flexWrap: 'wrap' as const },
   title: { fontFamily: P2, fontSize: '14px', color: PKN, lineHeight: 1.6, margin: 0 },
-  roomRow: { display: 'flex', gap: '12px', width: '100%', maxWidth: '900px', flexWrap: 'wrap' as const },
+  roomRow: { display: 'flex', flexDirection: 'column' as const, gap: '0px', width: '100%', maxWidth: '900px' },
   roomTitle: { fontFamily: P2, fontSize: '9px', color: SEC, marginBottom: '12px' },
   btn:   { background: 'transparent', border: '1px solid var(--color-panel-edge)',
     borderRadius: '6px', color: SEC, cursor: 'pointer', fontFamily: NU,
@@ -40,11 +40,14 @@ const css = {
     borderRadius: '6px', border: `1px solid ${SEC}`, background: 'transparent', color: SEC, cursor: 'pointer' },
 };
 
-function roomStyle(s: 'cleared'|'current'|'locked'): React.CSSProperties {
+function roomStyle(s: 'cleared'|'current'|'overdue'|'upcoming'|'locked'): React.CSSProperties {
   const base: React.CSSProperties = { flex:'1 1 240px', background:'var(--color-panel)',
-    borderRadius:'12px', padding:'14px', transition:'border 150ms ease' };
-  if (s==='cleared') return {...base, border:'2px solid var(--color-success)'};
-  if (s==='current') return {...base, border:'2px solid var(--color-pumpkin)', boxShadow:'0 0 10px 2px rgba(255,140,26,0.35)'};
+    borderRadius:'12px', padding:'14px', transition:'border 150ms ease, box-shadow 150ms ease', position:'relative' };
+  if (s==='cleared')  return {...base, border:'2px solid var(--color-success)'};
+  if (s==='current')  return {...base, border:'2px solid var(--color-pumpkin)', boxShadow:'0 0 10px 2px rgba(255,140,26,0.35)'};
+  if (s==='overdue')  return {...base, border:'2px solid var(--color-danger)', boxShadow:'0 0 12px 3px rgba(229,72,77,0.45)'};
+  if (s==='upcoming') return {...base, border:'2px solid var(--color-panel-edge)'};
+  // locked
   return {...base, border:'2px solid var(--color-panel-edge)', opacity:0.5, filter:'grayscale(0.4)'};
 }
 
@@ -155,14 +158,30 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled }:
 
       <div style={css.roomRow}>
         {dungeon.rooms.map((r, idx) => {
-          const st = roomStatus(dungeon.rooms, idx);
+          const isOverdue = now > new Date(dungeon.deadlineISO) && bossHpLeft(dungeon) > 0;
+          const st = roomStatus(dungeon.rooms, idx, isOverdue);
           return (
-            <div key={r.id} style={roomStyle(st)}>
-              <div style={css.roomTitle}>{r.title}</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
-                {r.monsters.map((m) => (
-                  <MonsterCard key={m.id} monster={m} selected={st==='current' && m.id===selId} onSelect={setSelId} />
-                ))}
+            <div key={r.id} style={{ display:'flex', flexDirection:'column', alignItems:'stretch', flex:'1 1 240px' }}>
+              {idx > 0 && (
+                <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:18 }}>
+                  <div style={{ width:3, height:18, background:'rgba(244,241,230,0.4)',
+                    borderLeft:'3px dashed rgba(244,241,230,0.4)' }} />
+                </div>
+              )}
+              <div style={roomStyle(st)}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
+                  <div style={css.roomTitle}>{r.title}</div>
+                  {st==='locked' && (
+                    <span style={{ fontFamily:NU, fontSize:'9px', color:'var(--color-secondary)',
+                      border:'1px solid var(--color-panel-edge)', borderRadius:4,
+                      padding:'1px 5px', letterSpacing:'0.05em' }}>[LOCKED]</span>
+                  )}
+                </div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
+                  {r.monsters.map((m) => (
+                    <MonsterCard key={m.id} monster={m} selected={st==='current' && m.id===selId} onSelect={setSelId} />
+                  ))}
+                </div>
               </div>
             </div>
           );

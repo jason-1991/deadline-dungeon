@@ -21,6 +21,17 @@
   --color-text:      #F4F1E6;
   --color-secondary: #A79BC7;
   --color-danger:    #E5484D;
+
+  /* HP bar fill gradients */
+  --color-hp-high: linear-gradient(90deg, #7CFC9B, #4ADE80);
+  --color-hp-mid:  linear-gradient(90deg, #FFA940, #FF8C1A);
+  --color-hp-low:  linear-gradient(90deg, #FF6B5E, #E5484D);
+  --color-track:   #150A29;
+}
+
+@keyframes hp-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
 }
 
 *, *::before, *::after {
