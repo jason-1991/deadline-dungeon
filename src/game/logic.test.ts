@@ -264,6 +264,7 @@ function makePlayer(overrides: Partial<PlayerProgress> = {}): PlayerProgress {
     streakDays: 0,
     lastStreakDateISO: null,
     earnedBadgeIds: [],
+    focusMinutes: 0,
     ...overrides,
   };
 }
@@ -387,5 +388,54 @@ describe("evaluateBadges: correct awards for a sample completed state", () => {
     const player = makePlayer();
     const badges = evaluateBadges(dungeon, player, new Date());
     expect(badges).not.toContain("dungeon_clear");
+  });
+});
+
+// ── XP rule: partial damage awards partial XP, overkill clamps ───────────────
+
+describe("applyDamage XP rule: damage applied equals XP earned (overkill clamped)", () => {
+  it("partial damage on a monster awards exactly the damage dealt (< maxHp)", () => {
+    // Monster with 60 HP, deal 20 damage — appliedDamage = 20, XP should be 20
+    const { appliedDamage } = applyDamage(60, 20);
+    expect(appliedDamage).toBe(20);
+  });
+
+  it("overkill clamps: dealing more damage than HP remaining yields appliedDamage === hp", () => {
+    // Monster with 10 HP remaining, deal 50 damage — only 10 should be applied
+    const { hpLeft, appliedDamage } = applyDamage(10, 50);
+    expect(hpLeft).toBe(0);
+    expect(appliedDamage).toBe(10);
+  });
+
+  it("property: appliedDamage always equals Math.min(hp, damage) for non-negative inputs", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 10_000 }),
+        fc.integer({ min: 0, max: 20_000 }),
+        (hp, damage) => {
+          const { appliedDamage } = applyDamage(hp, damage);
+          expect(appliedDamage).toBe(Math.min(hp, damage));
+        },
+      ),
+    );
+  });
+
+  it("cumulative XP from sequential hits never exceeds monster maxHp", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 10_000 }),
+        fc.array(fc.integer({ min: 0, max: 5_000 }), { minLength: 1, maxLength: 20 }),
+        (maxHp, hits) => {
+          let hp = maxHp;
+          let totalXp = 0;
+          for (const hit of hits) {
+            const { hpLeft, appliedDamage } = applyDamage(hp, hit);
+            totalXp += appliedDamage; // XP = appliedDamage per the rule
+            hp = hpLeft;
+          }
+          expect(totalXp).toBeLessThanOrEqual(maxHp);
+        },
+      ),
+    );
   });
 });

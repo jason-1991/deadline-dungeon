@@ -64,7 +64,7 @@ export default function ReportCard({ dungeon, player, variant, onClose }: Props)
               <Row label="STREAK"         value={`${player.streakDays} days`} />
               <Row label="MONSTERS SLAIN" value={`${slain} / ${totalM}`} />
               <Row label="ROOMS CLEARED"  value={`${clearedR} / ${dungeon.rooms.length}`} />
-              <Row label="FOCUS MINS"     value={String(maxHp - hpLeft)} />
+              <Row label="FOCUS MINS"     value={String(player.focusMinutes)} />
             </div>
             <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontFamily: P2, fontSize: '8px', color: SEC }}>BADGES</div>

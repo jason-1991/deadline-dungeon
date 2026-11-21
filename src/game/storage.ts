@@ -14,6 +14,7 @@ export function defaultPlayer(): PlayerProgress {
     streakDays: 0,
     lastStreakDateISO: null,
     earnedBadgeIds: [],
+    focusMinutes: 0,
   };
 }
 
@@ -24,6 +25,7 @@ export function loadState(): GameState {
     const parsed = JSON.parse(raw) as GameState;
     // Back-fill fields added after initial release
     if (!parsed.player.earnedBadgeIds) parsed.player.earnedBadgeIds = [];
+    if (parsed.player.focusMinutes == null) parsed.player.focusMinutes = 0;
     return parsed;
   } catch {
     return { dungeon: null, player: defaultPlayer() };

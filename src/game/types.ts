@@ -52,6 +52,8 @@ export interface PlayerProgress {
   lastStreakDateISO: string | null;
   /** Badge IDs earned so far. */
   earnedBadgeIds: BadgeId[];
+  /** Cumulative minutes from FocusTimer sessions (manual completes excluded). */
+  focusMinutes: number;
 }
 
 /** Computed state of the boss fight. */

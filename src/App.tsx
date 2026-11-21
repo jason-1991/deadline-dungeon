@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   bossMaxHp, bossHpLeft, bossState, roomStatus,
-  applyDamage, xpForMonster, levelForXp, updateStreak, evaluateBadges,
+  applyDamage, levelForXp, updateStreak, evaluateBadges, ALL_BADGES,
 } from './game/logic';
 import type { Dungeon, Room, BadgeId } from './game/types';
 import { loadState, saveState, defaultPlayer } from './game/storage';
@@ -67,11 +67,14 @@ function BadgeToast({ ids, onDone }: { ids: BadgeId[]; onDone: () => void }) {
       display:'flex', flexDirection:'column', gap:'6px', zIndex:300,
       boxShadow:'0 4px 24px rgba(74,222,128,0.25)' }}>
       <span style={{ fontFamily:P2, fontSize:'8px', color:'var(--color-success)' }}>🏆 BADGE EARNED!</span>
-      {ids.map((id) => (
-        <span key={id} style={{ fontFamily:NU, fontWeight:800, fontSize:'13px', color:'var(--color-text)' }}>
-          {id.replace(/_/g,' ').toUpperCase()}
-        </span>
-      ))}
+      {ids.map((id) => {
+        const def = ALL_BADGES.find((b) => b.id === id);
+        return (
+          <span key={id} style={{ fontFamily:NU, fontWeight:800, fontSize:'13px', color:'var(--color-text)' }}>
+            {def ? def.name : id.replace(/_/g,' ').toUpperCase()}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -98,7 +101,7 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled, new
     setSelId(room?.monsters.find((m) => !m.defeated)?.id ?? null);
   }, [dungeon.id, room?.id]);
 
-  function dealDamage(minutes: number) {
+  function dealDamage(minutes: number, source: 'focus' | 'manual' = 'manual') {
     if (!dungeon || !room) return;
     const target = room.monsters.find((m) => m.id===selId && !m.defeated)
       ?? room.monsters.find((m) => !m.defeated);
@@ -108,7 +111,8 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled, new
 
     const { hpLeft: newHp, appliedDamage } = applyDamage(target.hp, dmg);
     const died = newHp <= 0;
-    const xpGained = died ? xpForMonster(target.maxHp - target.hp + appliedDamage, target.maxHp) : 0;
+    // XP = damage actually applied (overkill already clamped by applyDamage)
+    const xpGained = appliedDamage;
     const newXp  = player.totalXp + xpGained;
     const { streakDays: ns, lastStreakDateISO: nl } = died
       ? updateStreak(player.streakDays, player.lastStreakDateISO, new Date())
@@ -117,7 +121,14 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled, new
     const newDungeon: Dungeon = { ...dungeon, rooms: dungeon.rooms.map((r) =>
       r.id!==room.id ? r : { ...r, monsters: r.monsters.map((m) =>
         m.id!==target.id ? m : { ...m, hp: newHp, defeated: died }) }) };
-    const newPlayer = { ...player, totalXp: newXp, level: levelForXp(newXp), streakDays: ns, lastStreakDateISO: nl };
+    const newPlayer = {
+      ...player,
+      totalXp: newXp,
+      level: levelForXp(newXp),
+      streakDays: ns,
+      lastStreakDateISO: nl,
+      focusMinutes: player.focusMinutes + (source === 'focus' ? appliedDamage : 0),
+    };
 
     const badges = evaluateBadges(newDungeon, newPlayer, new Date());
     if (badges.length) { newPlayer.earnedBadgeIds = [...(newPlayer.earnedBadgeIds??[]), ...badges]; setToast(badges); }
@@ -134,7 +145,7 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled, new
     if (!manArmed) {
       setManArmed(true);
       if (manArmTimer.current) clearTimeout(manArmTimer.current);
-      manArmTimer.current = setTimeout(() => setManArmed(false), 3000);
+      manArmTimer.current = setTimeout(() => setManArmed(false), 6000);
     } else {
       if (manArmTimer.current) clearTimeout(manArmTimer.current);
       setManArmed(false);
@@ -187,8 +198,7 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled, new
             <div key={r.id} style={{ display:'flex', flexDirection:'column', alignItems:'stretch', flex:'1 1 240px' }}>
               {idx > 0 && (
                 <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:18 }}>
-                  <div style={{ width:3, height:18, background:'rgba(244,241,230,0.4)',
-                    borderLeft:'3px dashed rgba(244,241,230,0.4)' }} />
+                  <div style={{ width:0, height:18, borderLeft:'3px dashed rgba(244,241,230,0.55)' }} />
                 </div>
               )}
               <div style={roomStyle(st)}>
@@ -213,7 +223,7 @@ function DungeonView({ state, setState, onNewDungeon, onShowReport, settled, new
 
       {room && !settled && (
         <div style={{ width:'100%', maxWidth:'900px', display:'flex', flexDirection:'column', alignItems:'center', gap:'12px' }}>
-          <FocusTimer onDealDamage={dealDamage} disabled={!room.monsters.find((m) => !m.defeated)} />
+          <FocusTimer onDealDamage={(mins) => dealDamage(mins, 'focus')} disabled={!room.monsters.find((m) => !m.defeated)} />
           <button style={css.manBtn} onClick={manualComplete}>
             {manArmed ? 'Slay without focus? Click again to confirm' : 'Complete without focus'}
           </button>
@@ -269,7 +279,7 @@ export default function App() {
     if (!newArmed) {
       setNewArmed(true);
       if (newArmTimer.current) clearTimeout(newArmTimer.current);
-      newArmTimer.current = setTimeout(() => setNewArmed(false), 3000);
+      newArmTimer.current = setTimeout(() => setNewArmed(false), 6000);
     } else {
       if (newArmTimer.current) clearTimeout(newArmTimer.current);
       setNewArmed(false);
